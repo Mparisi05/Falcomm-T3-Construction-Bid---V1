@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falcomm T3 Midtown - Construction Bid Evaluator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+
+        const FalcommBidEvaluator = () => {
+            // Project constants
+            const SPACE_SIZE = 13700;
+            const BASE_BID = 496951;
+            const DEFAULT_SOFT_COSTS_PSF = 4.50;
+
+            // State for base bid expansion
+            const [baseBidExpanded, setBaseBidExpanded] = useState(false);
+
+            // State for alternates (all start as "No")
+            const [alternates, setAlternates] = useState({
+                alt01: false,
+                alt02: false,
+                alt03: false,
+                alt04: false,
+                alt05: false,
+                alt06: false
+            });
+
+            // State for adjustable inputs
+            const [cmFeePercent, setCmFeePercent] = useState(3);
+            const [tiAllowancePSF, setTiAllowancePSF] = useState(0);
+            const [northAvePMFee, setNorthAvePMFee] = useState(0);
+            const [softCostsPSF, setSoftCostsPSF] = useState(DEFAULT_SOFT_COSTS_PSF);
+
+            // Alternate definitions
+            const alternateData = [
+                { 
+                    id: 'alt01', 
+                    name: 'ALT 01: 24/7 Supplemental Air (Partial Areas)',
+                    description: 'Entry 300, Exist. Break 301, Kitchenette 310, Open Office 307, Lab 309, Open Office 310, Exist. Open Office 311, Exist. Huddle 312, & Exist. Office 317',
+                    cost: 49979,
+                    note: 'Allowance'
+                },
+                { 
+                    id: 'alt02', 
+                    name: 'ALT 02: 24/7 Supplemental Air Throughout',
+                    description: 'Complete space coverage',
+                    cost: 110558,
+                    note: 'Allowance'
+                },
+                { 
+                    id: 'alt03', 
+                    name: 'ALT 03: Exposed Concrete Floor',
+                    description: 'In lieu of specified flooring',
+                    cost: 4799,
+                    note: 'Credit - reduces cost'
+                },
+                { 
+                    id: 'alt04', 
+                    name: 'ALT 04: Exterior Sliding Door',
+                    description: 'In lieu of existing to remain, install exterior sliding door to match existing curtain wall',
+                    cost: 27241,
+                    note: 'Allowance'
+                },
+                { 
+                    id: 'alt05', 
+                    name: 'ALT 05: Window Above Shelving',
+                    description: '2\'6" H window above shelving',
+                    cost: 4048,
+                    note: ''
+                },
+                { 
+                    id: 'alt06', 
+                    name: 'ALT 06: Use Existing Ductless Split System',
+                    description: 'For IT/Server - relocate existing wall mounted air handler in lieu of providing new 3-ton unit',
+                    cost: -13387,
+                    note: 'Credit - reduces cost'
+                }
+            ];
+
+            // Calculate total alternates
+            const alternatesTotal = useMemo(() => {
+                return alternateData.reduce((sum, alt) => {
+                    return alternates[alt.id] ? sum + alt.cost : sum;
+                }, 0);
+            }, [alternates]);
+
+            // Calculate construction subtotal (base + alternates)
+            const constructionSubtotal = useMemo(() => {
+                return BASE_BID + alternatesTotal;
+            }, [alternatesTotal]);
+
+            // Calculate CM Fee
+            const cmFee = useMemo(() => {
+                return constructionSubtotal * (cmFeePercent / 100);
+            }, [constructionSubtotal, cmFeePercent]);
+
+            // Calculate soft costs
+            const softCosts = useMemo(() => {
+                return SPACE_SIZE * softCostsPSF;
+            }, [softCostsPSF]);
+
+            // Calculate total project cost
+            const totalProjectCost = useMemo(() => {
+                return constructionSubtotal + cmFee + northAvePMFee + softCosts;
+            }, [constructionSubtotal, cmFee, northAvePMFee, softCosts]);
+
+            // Calculate TI Allowance
+            const tiAllowance = useMemo(() => {
+                return SPACE_SIZE * tiAllowancePSF;
+            }, [tiAllowancePSF]);
+
+            // Calculate balance/overage
+            const balance = useMemo(() => {
+                return tiAllowance - totalProjectCost;
+            }, [tiAllowance, totalProjectCost]);
+
+            // Format currency
+            const formatCurrency = (value) => {
+                return new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(value);
+            };
+
+            // Format per SF
+            const formatPerSF = (value) => {
+                const psf = value / SPACE_SIZE;
+                return `$${psf.toFixed(2)}/SF`;
+            };
+
+            // Format number with commas
+            const formatNumber = (value) => {
+                return new Intl.NumberFormat('en-US').format(value);
+            };
+
+            // Toggle alternate
+            const toggleAlternate = (id) => {
+                setAlternates(prev => ({
+                    ...prev,
+                    [id]: !prev[id]
+                }));
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                                        Falcomm - T3 Midtown, Suite 350
+                                    </h1>
+                                    <p className="text-gray-600">383 17th ST NW | Suite 350 | Atlanta, GA 30363</p>
+                                    <p className="text-sm text-gray-500 mt-1">Based on SW2 Drawing by Nelson | 8-Week Schedule</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm text-gray-600">Space Size</div>
+                                    <div className="text-2xl font-bold text-blue-600">{formatNumber(SPACE_SIZE)} SF</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Main Content */}
+                            <div className="lg:col-span-2 space-y-6">
+                                {/* Base Bid */}
+                                <div className="bg-white rounded-lg shadow-md p-6">
+                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Base Construction Bid</h2>
+                                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg">
+                                        <div 
+                                            className="p-4 cursor-pointer flex justify-between items-center hover:bg-blue-100 transition-colors rounded-t-lg"
+                                            onClick={() => setBaseBidExpanded(!baseBidExpanded)}
+                                        >
+                                            <div className="flex items-center space-x-3">
+                                                <svg 
+                                                    className={`w-5 h-5 text-blue-600 transition-transform ${baseBidExpanded ? 'rotate-90' : ''}`} 
+                                                    fill="none" 
+                                                    stroke="currentColor" 
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-700">Total Direct Cost</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        Click to {baseBidExpanded ? 'hide' : 'view'} line item breakdown
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-2xl font-bold text-blue-600">
+                                                    {formatCurrency(BASE_BID)}
+                                                </div>
+                                                <div className="text-sm text-blue-600">
+                                                    {formatPerSF(BASE_BID)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Expandable Line Items */}
+                                        {baseBidExpanded && (
+                                            <div className="border-t border-blue-200 px-4 py-3 bg-white rounded-b-lg">
+                                                <div className="space-y-1 text-sm">
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">General Conditions</span>
+                                                        <span className="font-medium">$30,000</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Logistics</span>
+                                                        <span className="font-medium">$2,750</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Cleaning</span>
+                                                        <span className="font-medium">$6,165</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Waste Management</span>
+                                                        <span className="font-medium">$1,050</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Selective Demolition</span>
+                                                        <span className="font-medium">$6,850</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Concrete</span>
+                                                        <span className="font-medium">$300</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Concrete Finishing</span>
+                                                        <span className="font-medium">$19,637</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Rough Carpentry</span>
+                                                        <span className="font-medium">$6,956</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Architectural Woodwork</span>
+                                                        <span className="font-medium">$32,710</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Membrane Roofing</span>
+                                                        <span className="font-medium">$1,750</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Doors, Frames, & Hardware</span>
+                                                        <span className="font-medium">$3,945</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Glass & Glazing</span>
+                                                        <span className="font-medium">$19,925</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Gypsum Board Assemblies</span>
+                                                        <span className="font-medium">$12,530</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Carpet & Resilient Flooring</span>
+                                                        <span className="font-medium">$10,674</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Paint & Wall Covering</span>
+                                                        <span className="font-medium">$4,677</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Fire Extinguishers</span>
+                                                        <span className="font-medium">$300</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Fire Suppression</span>
+                                                        <span className="font-medium">$9,750</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Plumbing</span>
+                                                        <span className="font-medium">$26,000</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">HVAC</span>
+                                                        <span className="font-medium">$96,610</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Electrical</span>
+                                                        <span className="font-medium">$176,000</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 border-b border-gray-100">
+                                                        <span className="text-gray-600">Life Safety - Fire Alarm</span>
+                                                        <span className="font-medium">$6,250</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-2 mt-2 border-t border-gray-300 bg-gray-50 -mx-4 px-4">
+                                                        <span className="text-gray-700 font-medium">Subtotal</span>
+                                                        <span className="font-bold">$474,829</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 text-gray-600">
+                                                        <span>Overhead & Fee (3%)</span>
+                                                        <span>$14,245</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 text-gray-600">
+                                                        <span>Permit Expense</span>
+                                                        <span>$4,668</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-1 text-gray-600">
+                                                        <span>Insurance</span>
+                                                        <span>$3,209</span>
+                                                    </div>
+                                                    <div className="flex justify-between py-2 mt-2 border-t border-gray-300 bg-blue-50 -mx-4 px-4 rounded-b-lg">
+                                                        <span className="text-blue-700 font-bold">Total Direct Cost</span>
+                                                        <span className="font-bold text-blue-700">$496,951</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Alternates */}
+                                <div className="bg-white rounded-lg shadow-md p-6">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h2 className="text-xl font-bold text-gray-900">
+                                            Project Alternates
+                                        </h2>
+                                        <div className="flex items-center space-x-2">
+                                            <span className="text-sm text-gray-500">Selected:</span>
+                                            <span className="bg-blue-600 text-white text-sm font-bold px-2 py-1 rounded-full">
+                                                {Object.values(alternates).filter(Boolean).length} of {alternateData.length}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Instruction Banner */}
+                                    <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 mb-4">
+                                        <div className="flex items-start space-x-3">
+                                            <div className="flex-shrink-0">
+                                                <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-amber-800">Select Your Options Below</div>
+                                                <div className="text-sm text-amber-700 mt-1">
+                                                    Click <span className="font-bold">"Yes"</span> or <span className="font-bold">"No"</span> on each alternate to see how it affects your total project cost in real-time.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {alternateData.map((alt) => (
+                                            <div 
+                                                key={alt.id}
+                                                className={`border-2 rounded-lg p-4 transition-all ${
+                                                    alternates[alt.id]
+                                                        ? alt.cost < 0
+                                                            ? 'border-green-400 bg-green-50'
+                                                            : 'border-blue-400 bg-blue-50'
+                                                        : 'border-gray-200 bg-white'
+                                                }`}
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex-1">
+                                                        <div className="text-lg font-bold text-gray-900">{alt.name}</div>
+                                                        <div className="text-sm text-gray-600 mt-1">{alt.description}</div>
+                                                        {alt.note && (
+                                                            <div className="text-xs text-gray-500 mt-1 italic">{alt.note}</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="ml-4 text-right">
+                                                        <div className={`text-lg font-bold ${
+                                                            alt.cost < 0 ? 'text-green-600' : 'text-gray-900'
+                                                        }`}>
+                                                            {alt.cost < 0 ? '-' : ''}{formatCurrency(Math.abs(alt.cost))}
+                                                        </div>
+                                                        <div className={`text-sm ${
+                                                            alt.cost < 0 ? 'text-green-600' : 'text-gray-600'
+                                                        }`}>
+                                                            {formatPerSF(alt.cost)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center justify-end space-x-3 mt-3 pt-3 border-t border-gray-100">
+                                                    <span className="text-sm text-gray-500 mr-2">Include this alternate?</span>
+                                                    <button
+                                                        onClick={() => toggleAlternate(alt.id)}
+                                                        className={`px-5 py-2 rounded-md font-bold transition-all ${
+                                                            !alternates[alt.id]
+                                                                ? 'bg-gray-700 text-white shadow-md'
+                                                                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        No
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleAlternate(alt.id)}
+                                                        className={`px-5 py-2 rounded-md font-bold transition-all ${
+                                                            alternates[alt.id]
+                                                                ? alt.cost < 0
+                                                                    ? 'bg-green-600 text-white shadow-md'
+                                                                    : 'bg-blue-600 text-white shadow-md'
+                                                                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        Yes
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Adjustable Parameters */}
+                                <div className="bg-white rounded-lg shadow-md p-6">
+                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Additional Parameters</h2>
+                                    <div className="space-y-6">
+                                        {/* Soft Costs */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Soft Costs (A&E Fees)
+                                            </label>
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-gray-500">$</span>
+                                                <input
+                                                    type="number"
+                                                    value={softCostsPSF || ''}
+                                                    onChange={(e) => setSoftCostsPSF(parseFloat(e.target.value) || 0)}
+                                                    step="0.25"
+                                                    className="w-32 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                                <span className="text-gray-500">/SF</span>
+                                            </div>
+                                            <div className="mt-2 text-sm text-gray-600">
+                                                Total soft costs: {formatCurrency(softCosts)}
+                                            </div>
+                                        </div>
+
+                                        {/* TI Allowance */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Landlord TI Allowance (Optional)
+                                            </label>
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-gray-500">$</span>
+                                                <input
+                                                    type="number"
+                                                    value={tiAllowancePSF || ''}
+                                                    onChange={(e) => setTiAllowancePSF(parseFloat(e.target.value) || 0)}
+                                                    placeholder="0.00"
+                                                    step="1"
+                                                    className="w-32 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                                <span className="text-gray-500">/SF</span>
+                                            </div>
+                                            {tiAllowancePSF > 0 && (
+                                                <div className="mt-2 text-sm text-gray-600">
+                                                    Total TI allowance: {formatCurrency(tiAllowance)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Summary Sidebar */}
+                            <div className="lg:col-span-1">
+                                <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
+                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Cost Summary</h2>
+                                    <div className="space-y-4">
+                                        {/* Construction Subtotal */}
+                                        <div className="border-b border-gray-200 pb-3">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-sm text-gray-600">Base Construction Bid</span>
+                                                <span className="text-sm font-medium text-right">
+                                                    {formatCurrency(BASE_BID)}
+                                                </span>
+                                            </div>
+                                            {alternatesTotal !== 0 && (
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="text-sm text-gray-600 flex items-center">
+                                                        <svg className="w-4 h-4 mr-1 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                                        </svg>
+                                                        Selected Alternates
+                                                    </span>
+                                                    <span className={`text-sm font-medium text-right ${
+                                                        alternatesTotal < 0 ? 'text-green-600' : 'text-blue-600'
+                                                    }`}>
+                                                        {alternatesTotal < 0 ? '-' : '+'}{formatCurrency(Math.abs(alternatesTotal))}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between items-start pt-2 border-t border-gray-100">
+                                                <span className="text-sm font-semibold text-gray-700">Construction Subtotal</span>
+                                                <div className="text-right">
+                                                    <div className="text-sm font-bold text-gray-900">
+                                                        {formatCurrency(constructionSubtotal)}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {formatPerSF(constructionSubtotal)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Additional Costs */}
+                                        <div className="border-b border-gray-200 pb-3 space-y-3">
+                                            {/* CM Fee with slider */}
+                                            <div>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="text-sm text-gray-600">CM Fee ({cmFeePercent}%)</span>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {formatCurrency(cmFee)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">
+                                                            {formatPerSF(cmFee)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="5"
+                                                        step="0.5"
+                                                        value={cmFeePercent}
+                                                        onChange={(e) => setCmFeePercent(parseFloat(e.target.value))}
+                                                        className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                                    />
+                                                    <div className="text-xs font-semibold text-blue-600 w-12 text-right">
+                                                        {cmFeePercent}%
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* North Ave PM Fee with input */}
+                                            <div>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="text-sm text-gray-600">North Ave PM Fee</span>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {formatCurrency(northAvePMFee)}
+                                                        </div>
+                                                        {northAvePMFee > 0 && (
+                                                            <div className="text-xs text-gray-500">
+                                                                {formatPerSF(northAvePMFee)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-xs text-gray-500">$</span>
+                                                    <input
+                                                        type="number"
+                                                        value={northAvePMFee || ''}
+                                                        onChange={(e) => setNorthAvePMFee(parseFloat(e.target.value) || 0)}
+                                                        placeholder="0"
+                                                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Soft Costs */}
+                                            <div className="flex justify-between items-start">
+                                                <span className="text-sm text-gray-600">Soft Costs (A&E)</span>
+                                                <div className="text-right">
+                                                    <div className="text-sm font-medium text-gray-900">
+                                                        {formatCurrency(softCosts)}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        ${softCostsPSF.toFixed(2)}/SF
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Total Project Cost */}
+                                        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-sm font-semibold text-gray-700">Total Project Cost</span>
+                                                <div className="text-right">
+                                                    <div className="text-xl font-bold text-blue-600">
+                                                        {formatCurrency(totalProjectCost)}
+                                                    </div>
+                                                    <div className="text-sm text-blue-600">
+                                                        {formatPerSF(totalProjectCost)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* TI Allowance & Balance */}
+                                        {tiAllowancePSF > 0 && (
+                                            <>
+                                                <div className="border-b border-gray-200 pb-3">
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="text-sm text-gray-600">TI Allowance</span>
+                                                        <div className="text-right">
+                                                            <div className="text-sm font-medium text-green-600">
+                                                                {formatCurrency(tiAllowance)}
+                                                            </div>
+                                                            <div className="text-xs text-green-600">
+                                                                ${tiAllowancePSF.toFixed(2)}/SF
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`rounded-lg p-4 ${
+                                                    balance >= 0 
+                                                        ? 'bg-green-50 border-2 border-green-200' 
+                                                        : 'bg-red-50 border-2 border-red-200'
+                                                }`}>
+                                                    <div className="flex justify-between items-start">
+                                                        <span className={`text-sm font-semibold ${
+                                                            balance >= 0 ? 'text-green-700' : 'text-red-700'
+                                                        }`}>
+                                                            {balance >= 0 ? 'TI Credit Remaining' : 'Tenant Overage'}
+                                                        </span>
+                                                        <div className="text-right">
+                                                            <div className={`text-xl font-bold ${
+                                                                balance >= 0 ? 'text-green-600' : 'text-red-600'
+                                                            }`}>
+                                                                {balance >= 0 ? '' : '-'}{formatCurrency(Math.abs(balance))}
+                                                            </div>
+                                                            <div className={`text-sm ${
+                                                                balance >= 0 ? 'text-green-600' : 'text-red-600'
+                                                            }`}>
+                                                                {formatPerSF(balance)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Excluded Items Note */}
+                                    <div className="mt-6 pt-6 border-t border-gray-200">
+                                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Excluded Items</h3>
+                                        <ul className="text-xs text-gray-600 space-y-1">
+                                            <li>• Data/Voice Communications (By Tenant Vendor)</li>
+                                            <li>• Access Control (By Tenant Vendor)</li>
+                                            <li>• Door Keying</li>
+                                            <li>• Window Treatments (Existing to Remain)</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer Note */}
+                        <div className="mt-6 bg-white rounded-lg shadow-md p-4">
+                            <p className="text-sm text-gray-600">
+                                <strong>Note:</strong> Budget is based on SW2 plan by Nelson dated 11.10.2025. 
+                                Schedule: 8 weeks. Budget includes Rand Construction's 3% overhead & fee, permit expense, and insurance. 
+                                All alternates are currently pending and can be selected above.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<FalcommBidEvaluator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
